@@ -495,8 +495,99 @@
             .contact-container {
                 grid-template-columns: 1fr;
             }
+            .form-input:focus, .form-textarea:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(157, 78, 221, 0.2);
+}
+
+       
+.form-input.error, .form-textarea.error {
+    border-color: #ff6b6b;
+}
+
+.error-message {
+    color: #ff6b6b;
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+/* Estilos del botón de envío */
+.submit-button {
+    position: relative;
+}
+
+.submit-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Animación de carga */
+@keyframes spinner {
+    to { transform: rotate(360deg); }
+}
+
+.submit-button.loading {
+    padding-left: 45px;
+}
+
+.submit-button.loading::before {
+    content: '';
+    box-sizing: border-box;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    left: 15px;
+    top: 50%;
+    margin-top: -10px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    animation: spinner .8s linear infinite;
+}
+
+/* Estilo para notificaciones */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    color: white;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.notification.success {
+    background-color: #4caf50;
+}
+
+.notification.error {
+    background-color: #f44336;
+}
+
+/* Animaciones para notificaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(20px); }
+}
+
         }
     </style>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+        (function() {
+           
+            emailjs.init("b0g5kC1kYtnsr7mrc");
+        })();
+    </script>
 </head>
 <body>
     <!-- Header Section -->
@@ -529,7 +620,7 @@
         <div class="container">
             <h2 class="section-title">Sobre Mí</h2>
             <div class="bio">
-                
+                 
                 <div class="bio-content">
                     <p>
                         Estudiante avanzado en Ingeniería de Sistemas, con experiencia en puestos administrativos, servicio al cliente y soporte técnico. 
@@ -820,7 +911,6 @@
             }
         }
         
-        // ContactFormService - Maneja el formulario de contacto
         class ContactFormService {
             constructor(formId) {
                 this.form = document.getElementById(formId);
@@ -837,27 +927,123 @@
             }
             
             handleSubmit(e) {
-                e.preventDefault();
-                
-                // En una implementación real, aquí iría la validación y el envío de datos
-                const formData = new FormData(this.form);
-                const formValues = {};
-                
-                for (let [key, value] of formData.entries()) {
-                    formValues[key] = value;
-                }
-                
-                // Simulación de envío de datos
-                console.log('ContactFormService: Form submitted', formValues);
-                
-                // Respuesta al usuario
-                alert('¡Gracias por tu mensaje! Te contactaré pronto.');
-                this.form.reset();
-            }
+    e.preventDefault();
+    
+    // Validar el formulario antes de enviar
+    if (!this.validateForm()) {
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    const submitButton = this.form.querySelector('.submit-button');
+    const originalButtonText = submitButton.textContent;
+    submitButton.textContent = 'Enviando...';
+    submitButton.disabled = true;
+    submitButton.classList.add('loading');
+    
+    // Obtener los valores directamente de los campos
+    const templateParams = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        subject: document.getElementById('subject').value,
+        message: document.getElementById('message').value
+    };
+    
+    console.log('Enviando email con los siguientes parámetros:', templateParams);
+    
+    // Enviar el email usando EmailJS
+    emailjs.send('service_6ea9vlv', 'template_87n2fwr', templateParams)
+        .then((response) => {
+            console.log('ContactFormService: Email sent successfully', response);
+            alert('¡Gracias por tu mensaje! Te contactaré pronto.');
+            this.form.reset();
+            
+            // Restaurar el botón
+            submitButton.textContent = originalButtonText;
+            submitButton.disabled = false;
+            submitButton.classList.remove('loading');
+        })
+        .catch((error) => {
+            console.error('ContactFormService: Error sending email', error);
+            alert('Hubo un problema al enviar tu mensaje. Por favor, intenta de nuevo o contáctame directamente por email.');
+            console.error('Error details:', error);
+            
+            // Restaurar el botón
+            submitButton.textContent = originalButtonText;
+            submitButton.disabled = false;
+            submitButton.classList.remove('loading');
+        });
+}
             
             validateForm() {
-                // Implementación adicional para validar el formulario
-                return true;
+                let isValid = true;
+                const requiredFields = this.form.querySelectorAll('[required]');
+                
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        isValid = false;
+                        this.showError(field, 'Este campo es obligatorio');
+                    } else if (field.type === 'email' && !this.isValidEmail(field.value)) {
+                        isValid = false;
+                        this.showError(field, 'Por favor, ingresa un email válido');
+                    } else {
+                        this.removeError(field);
+                    }
+                });
+                
+                return isValid;
+            }
+            
+            showError(field, message) {
+                this.removeError(field);
+                const errorElement = document.createElement('div');
+                errorElement.className = 'error-message';
+                errorElement.textContent = message;
+                field.parentNode.appendChild(errorElement);
+                field.classList.add('error');
+            }
+            
+            removeError(field) {
+                const errorElement = field.parentNode.querySelector('.error-message');
+                if (errorElement) {
+                    errorElement.remove();
+                }
+                field.classList.remove('error');
+            }
+            
+            isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+            
+            showSuccessMessage(message) {
+                this.showNotification(message, 'success');
+            }
+            
+            showErrorMessage(message) {
+                this.showNotification(message, 'error');
+            }
+            
+            showNotification(message, type) {
+                // Eliminar notificaciones existentes
+                const existingNotifications = document.querySelectorAll('.notification');
+                existingNotifications.forEach(notification => notification.remove());
+                
+                // Crear nueva notificación
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                
+                // Agregar notificación al body
+                document.body.appendChild(notification);
+                
+                // Eliminar la notificación después de 5 segundos
+                setTimeout(() => {
+                    notification.style.animation = 'fadeOut 0.3s ease-out forwards';
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 300);
+                }, 5000);
             }
         }
         
